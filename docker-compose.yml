@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  mailbox-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      # CRITICAL: Mount Docker socket to allow API to manage PowerShell containers
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Mount for temporary scripts
+      - /tmp/mailbox_scripts:/tmp/mailbox_scripts
+    environment:
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
+    
+    # Pre-pull PowerShell image to avoid delays during runtime
+    depends_on:
+      - powershell-preloader
+
+  # Service to pre-pull the PowerShell image
+  powershell-preloader:
+    image: mcr.microsoft.com/powershell:latest
+    command: ["pwsh", "-c", "Write-Host 'PowerShell image pre-loaded'; Start-Sleep 2"]
+    restart: "no"
+
+# Optional: Network for container isolation (if using proxies)
+networks:
+  default:
+    driver: bridge 
