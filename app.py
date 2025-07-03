@@ -139,7 +139,7 @@ async def get_container_status(container_id: str):
             # Extract auth code
             auth_code = extract_auth_code(logs)
             current_status = "waiting_for_auth"
-        elif "AUTH_SUCCESS:" in logs:
+        elif is_authenticated_from_logs(logs):
             current_status = "creating_mailboxes"
         elif "AUTH_TIMEOUT:" in logs:
             current_status = "auth_timeout"
@@ -267,33 +267,13 @@ try {{
         exit 1
     }}
     
-    # Poll for authentication success
+    # Wait for authentication completion - detect welcome message instead of polling
     Write-Host "Waiting for authentication to complete..." -ForegroundColor Cyan
-    $authComplete = $false
-    $attempts = 0
-    $maxAttempts = 60  # 15 minutes (15 second intervals)
+    Write-Host "Complete authentication at https://microsoft.com/devicelogin using the code above" -ForegroundColor Yellow
     
-    while (-not $authComplete -and $attempts -lt $maxAttempts) {{
-        Start-Sleep -Seconds 15
-        $attempts++
-        
-        Write-Host "AUTH_POLLING: Attempt $attempts/$maxAttempts - checking authentication status..." -ForegroundColor Gray
-        
-        try {{
-            # Test authentication by trying to get mailboxes
-            $null = Get-Mailbox -ResultSize 1 -ErrorAction Stop
-            $authComplete = $true
-            Write-Host "AUTH_SUCCESS: Authentication completed successfully!" -ForegroundColor Green
-        }} catch {{
-            Write-Host "AUTH_WAITING: Still waiting for authentication... (attempt $attempts/$maxAttempts)" -ForegroundColor Yellow
-        }}
-    }}
-    
-    if (-not $authComplete) {{
-        Write-Host "AUTH_TIMEOUT: Authentication not completed within 15 minutes" -ForegroundColor Red
-        Write-Host "Please restart the process if you completed authentication" -ForegroundColor Red
-        exit 1
-    }}
+    # The Connect-ExchangeOnline command will block until authentication is complete
+    # When successful, it will show the welcome message with V3 EXO module info
+    Write-Host "AUTH_WAITING: Please complete authentication in your browser..." -ForegroundColor Yellow
     
     # Authentication successful - now create mailboxes
     Write-Host ""
@@ -399,11 +379,32 @@ def extract_auth_code(logs: str) -> Optional[str]:
     
     return None
 
+def is_authenticated_from_logs(logs: str) -> bool:
+    """Check if authentication was successful by detecting welcome message"""
+    
+    # Look for welcome message patterns that appear after successful authentication
+    welcome_patterns = [
+        "This V3 EXO PowerShell module contains new REST API backed Exchange Online cmdlets",
+        "Unlike the EXO* prefixed cmdlets, the cmdlets in this module support full functional parity", 
+        "For more information check https://aka.ms/exov3-module",
+        "Starting with EXO V3.7",
+        "REST backed EOP and SCC cmdlets are also available",
+        "LoadCmdletHelp parameter alongside Connect-ExchangeOnline",
+        "=== CREATING MAILBOXES ===",  # This appears after successful auth
+        "Creating .* mailboxes for domain:"  # Regex pattern for mailbox creation start
+    ]
+    
+    for pattern in welcome_patterns:
+        if re.search(pattern, logs, re.IGNORECASE):
+            return True
+    
+    return False
+
 def parse_container_status(logs: str) -> str:
     """Parse current status from container logs"""
     if "AUTH_TIMEOUT:" in logs:
         return "auth_timeout"
-    elif "AUTH_SUCCESS:" in logs:
+    elif is_authenticated_from_logs(logs):
         return "creating_mailboxes"
     elif "AUTH_CODE:" in logs:
         return "waiting_for_auth"
