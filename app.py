@@ -337,10 +337,26 @@ async def start_domain_container(domain: str, ps_script: str, proxy_endpoint: Op
             "-e", "HTTPS_PROXY=socks5://8jm9GymM9fj1umY_c_US:RNW78Fm5@secret.infrastructure.2.flowproxies.com:10590"
         ])
         
-        # Start a detached PowerShell container that stays alive
+        # Create a wrapper script that executes the main script and ensures output goes to container logs
+        wrapper_script = f"""
+# Write script to temp file inside container
+$scriptContent = @'
+{ps_script}
+'@
+
+$scriptPath = "/tmp/mailbox_script.ps1"
+$scriptContent | Out-File -FilePath $scriptPath -Encoding UTF8
+
+# Execute the script and ensure all output goes to container stdout/stderr
+Write-Host "Starting mailbox creation script..." -ForegroundColor Cyan
+& $scriptPath 2>&1 | Tee-Object -FilePath "/dev/stdout"
+Write-Host "Script execution completed." -ForegroundColor Cyan
+"""
+        
+        # Start container with the wrapper script
         cmd.extend([
             "mcr.microsoft.com/powershell:latest",
-            "pwsh", "-NoProfile", "-Command", "Start-Sleep 3600"  # Keep alive for 1 hour
+            "pwsh", "-NoProfile", "-ExecutionPolicy", "Bypass", "-c", wrapper_script
         ])
         
         # Start the detached container
@@ -352,32 +368,6 @@ async def start_domain_container(domain: str, ps_script: str, proxy_endpoint: Op
         
         actual_container_id = result.stdout.strip()
         print(f"DEBUG: Started container: {actual_container_id}")
-        
-        # Now execute the script in the running container via docker exec
-        exec_cmd = [
-            "docker", "exec", "-i", actual_container_id,
-            "pwsh", "-NoProfile", "-ExecutionPolicy", "Bypass", "-"
-        ]
-        
-        print(f"DEBUG: Executing script in container: {' '.join(exec_cmd)}")
-        
-        # Execute the script via stdin to the running container
-        exec_process = subprocess.Popen(exec_cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-        
-        # Start script execution in background thread so it doesn't block the API
-        import threading
-        def run_script():
-            try:
-                stdout, stderr = exec_process.communicate(input=ps_script, timeout=3600)  # 1 hour timeout
-                print(f"DEBUG: Script execution completed for {container_name}")
-                print(f"DEBUG: Script stdout: {stdout[:500]}...")
-                if stderr:
-                    print(f"DEBUG: Script stderr: {stderr[:500]}...")
-            except Exception as e:
-                print(f"DEBUG: Script execution failed for {container_name}: {e}")
-        
-        script_thread = threading.Thread(target=run_script, daemon=True)
-        script_thread.start()
         
         return container_name
         
