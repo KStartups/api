@@ -328,8 +328,13 @@ async def start_domain_container(domain: str, ps_script: str, proxy_endpoint: Op
     
     script_path = os.path.join(script_dir, f"{container_name}.ps1")
     
+    # Create the script file
     with open(script_path, 'w', encoding='utf-8') as f:
         f.write(ps_script)
+    
+    # Verify script file was created
+    if not os.path.exists(script_path):
+        raise Exception(f"Failed to create script file: {script_path}")
     
     try:
         # Build Docker command with proxy if provided
@@ -338,13 +343,12 @@ async def start_domain_container(domain: str, ps_script: str, proxy_endpoint: Op
             "-v", f"{script_path}:/script.ps1:ro",
         ]
         
-        # Add proxy configuration if provided
-        if proxy_endpoint:
-            cmd.extend([
-                "-e", f"ALL_PROXY={proxy_endpoint}",
-                "-e", f"HTTP_PROXY={proxy_endpoint}",
-                "-e", f"HTTPS_PROXY={proxy_endpoint}"
-            ])
+        # Add proxy configuration - use the hardcoded proxy for now
+        cmd.extend([
+            "-e", "ALL_PROXY=socks5://8jm9GymM9fj1umY_c_US:RNW78Fm5@secret.infrastructure.2.flowproxies.com:10590",
+            "-e", "HTTP_PROXY=socks5://8jm9GymM9fj1umY_c_US:RNW78Fm5@secret.infrastructure.2.flowproxies.com:10590",
+            "-e", "HTTPS_PROXY=socks5://8jm9GymM9fj1umY_c_US:RNW78Fm5@secret.infrastructure.2.flowproxies.com:10590"
+        ])
         
         # Add PowerShell container with proper command syntax
         cmd.extend([
