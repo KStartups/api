@@ -346,10 +346,10 @@ async def start_domain_container(domain: str, ps_script: str, proxy_endpoint: Op
                 "-e", f"HTTPS_PROXY={proxy_endpoint}"
             ])
         
-        # Add PowerShell container
+        # Add PowerShell container with proper command syntax
         cmd.extend([
             "mcr.microsoft.com/powershell:latest",
-            "pwsh", "-File", "/script.ps1"
+            "pwsh", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "/script.ps1"
         ])
         
         # Start the container
