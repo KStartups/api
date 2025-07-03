@@ -337,10 +337,10 @@ async def start_domain_container(domain: str, ps_script: str, proxy_endpoint: Op
         raise Exception(f"Failed to create script file: {script_path}")
     
     try:
-        # Build Docker command with proxy if provided
+        # Build Docker command - mount the entire scripts volume and specify the exact script
         cmd = [
             "docker", "run", "-d", "--name", container_name,
-            "-v", f"{script_path}:/script.ps1:ro",
+            "-v", "mailbox-scripts:/scripts:ro",
         ]
         
         # Add proxy configuration - use the hardcoded proxy for now
@@ -351,9 +351,10 @@ async def start_domain_container(domain: str, ps_script: str, proxy_endpoint: Op
         ])
         
         # Add PowerShell container with proper command syntax
+        script_name = f"{container_name}.ps1"
         cmd.extend([
             "mcr.microsoft.com/powershell:latest",
-            "pwsh", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "/script.ps1"
+            "pwsh", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", f"/scripts/{script_name}"
         ])
         
         # Start the container
