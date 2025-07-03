@@ -332,15 +332,19 @@ async def start_domain_container(domain: str, ps_script: str, proxy_endpoint: Op
     with open(script_path, 'w', encoding='utf-8') as f:
         f.write(ps_script)
     
-    # Verify script file was created
+    # Verify script file was created and log details
     if not os.path.exists(script_path):
         raise Exception(f"Failed to create script file: {script_path}")
     
+    file_size = os.path.getsize(script_path)
+    print(f"DEBUG: Created script file: {script_path} ({file_size} bytes)")
+    print(f"DEBUG: Script directory contents: {os.listdir(script_dir)}")
+    
     try:
-        # Build Docker command - mount the entire scripts volume and specify the exact script
+        # Build Docker command - mount the scripts volume to the same path as in API container
         cmd = [
             "docker", "run", "-d", "--name", container_name,
-            "-v", "mailbox-scripts:/scripts:ro",
+            "-v", "mailbox-scripts:/tmp/mailbox_scripts:ro",
         ]
         
         # Add proxy configuration - use the hardcoded proxy for now
@@ -354,8 +358,11 @@ async def start_domain_container(domain: str, ps_script: str, proxy_endpoint: Op
         script_name = f"{container_name}.ps1"
         cmd.extend([
             "mcr.microsoft.com/powershell:latest",
-            "pwsh", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", f"/scripts/{script_name}"
+            "pwsh", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", f"/tmp/mailbox_scripts/{script_name}"
         ])
+        
+        # Debug: Log the exact Docker command
+        print(f"DEBUG: Executing Docker command: {' '.join(cmd)}")
         
         # Start the container
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
