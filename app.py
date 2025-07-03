@@ -354,15 +354,42 @@ async def start_domain_container(domain: str, ps_script: str, proxy_endpoint: Op
             "-e", "HTTPS_PROXY=socks5://8jm9GymM9fj1umY_c_US:RNW78Fm5@secret.infrastructure.2.flowproxies.com:10590"
         ])
         
-        # Add PowerShell container with proper command syntax
+        # Add PowerShell container with proper command syntax  
         script_name = f"{container_name}.ps1"
+        script_path_in_container = f"/tmp/mailbox_scripts/{script_name}"
+        
+        # Change approach: First list directory contents, then run script
         cmd.extend([
             "mcr.microsoft.com/powershell:latest",
-            "pwsh", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", f"/tmp/mailbox_scripts/{script_name}"
+            "pwsh", "-NoProfile", "-ExecutionPolicy", "Bypass", "-c", 
+            f"Write-Host 'Container started'; " +
+            f"Write-Host 'Listing /tmp/mailbox_scripts:'; " +
+            f"Get-ChildItem '/tmp/mailbox_scripts' -Force | Format-Table Name, Length, LastWriteTime; " +
+            f"Write-Host 'Checking if script exists:'; " +
+            f"Test-Path '{script_path_in_container}'; " +
+            f"if (Test-Path '{script_path_in_container}') {{ " +
+            f"Write-Host 'Script found, executing...'; " +
+            f"& '{script_path_in_container}' " +
+            f"}} else {{ " +
+            f"Write-Host 'ERROR: Script not found at {script_path_in_container}'; " +
+            f"Write-Host 'Current directory:'; Get-Location; " +
+            f"Write-Host 'Full directory listing:'; Get-ChildItem '/tmp' -Recurse -Force | Format-Table FullName " +
+            f"}}"
         ])
         
         # Debug: Log the exact Docker command
         print(f"DEBUG: Executing Docker command: {' '.join(cmd)}")
+        
+        # Debug: Check what files exist in the volume before running main container
+        debug_cmd = [
+            "docker", "run", "--rm",
+            "-v", "mailbox-scripts:/tmp/mailbox_scripts",
+            "mcr.microsoft.com/powershell:latest",
+            "pwsh", "-c", "Get-ChildItem /tmp/mailbox_scripts -Force"
+        ]
+        debug_result = subprocess.run(debug_cmd, capture_output=True, text=True, timeout=10)
+        print(f"DEBUG: Files in volume: {debug_result.stdout}")
+        print(f"DEBUG: Volume stderr: {debug_result.stderr}")
         
         # Start the container
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
