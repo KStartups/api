@@ -318,33 +318,16 @@ try {{
 async def start_domain_container(domain: str, ps_script: str, proxy_endpoint: Optional[str] = None) -> str:
     """Start an isolated container for a specific domain"""
     
-    # Create temporary script file
-    script_dir = "/tmp/mailbox_scripts"
-    os.makedirs(script_dir, exist_ok=True)
-    
     # Generate unique container name for this domain
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     container_name = f"mailbox-creator-{domain.replace('.', '-')}-{timestamp}"
     
-    script_path = os.path.join(script_dir, f"{container_name}.ps1")
-    
-    # Create the script file
-    with open(script_path, 'w', encoding='utf-8') as f:
-        f.write(ps_script)
-    
-    # Verify script file was created and log details
-    if not os.path.exists(script_path):
-        raise Exception(f"Failed to create script file: {script_path}")
-    
-    file_size = os.path.getsize(script_path)
-    print(f"DEBUG: Created script file: {script_path} ({file_size} bytes)")
-    print(f"DEBUG: Script directory contents: {os.listdir(script_dir)}")
+    print(f"DEBUG: Starting container for domain: {domain}")
     
     try:
-        # Build Docker command - mount the scripts volume to the same path as in API container
+        # Build Docker command for detached container
         cmd = [
             "docker", "run", "-d", "--name", container_name,
-            "-v", "mailbox-scripts:/tmp/mailbox_scripts:ro",
         ]
         
         # Add proxy configuration - use the hardcoded proxy for now
@@ -354,55 +337,54 @@ async def start_domain_container(domain: str, ps_script: str, proxy_endpoint: Op
             "-e", "HTTPS_PROXY=socks5://8jm9GymM9fj1umY_c_US:RNW78Fm5@secret.infrastructure.2.flowproxies.com:10590"
         ])
         
-        # Add PowerShell container with proper command syntax  
-        script_name = f"{container_name}.ps1"
-        script_path_in_container = f"/tmp/mailbox_scripts/{script_name}"
-        
-        # Change approach: First list directory contents, then run script
+        # Start a detached PowerShell container that stays alive
         cmd.extend([
             "mcr.microsoft.com/powershell:latest",
-            "pwsh", "-NoProfile", "-ExecutionPolicy", "Bypass", "-c", 
-            f"Write-Host 'Container started'; " +
-            f"Write-Host 'Listing /tmp/mailbox_scripts:'; " +
-            f"Get-ChildItem '/tmp/mailbox_scripts' -Force | Format-Table Name, Length, LastWriteTime; " +
-            f"Write-Host 'Checking if script exists:'; " +
-            f"Test-Path '{script_path_in_container}'; " +
-            f"if (Test-Path '{script_path_in_container}') {{ " +
-            f"Write-Host 'Script found, executing...'; " +
-            f"& '{script_path_in_container}' " +
-            f"}} else {{ " +
-            f"Write-Host 'ERROR: Script not found at {script_path_in_container}'; " +
-            f"Write-Host 'Current directory:'; Get-Location; " +
-            f"Write-Host 'Full directory listing:'; Get-ChildItem '/tmp' -Recurse -Force | Format-Table FullName " +
-            f"}}"
+            "pwsh", "-NoProfile", "-Command", "Start-Sleep 3600"  # Keep alive for 1 hour
         ])
         
-        # Debug: Log the exact Docker command
+        # Start the detached container
         print(f"DEBUG: Executing Docker command: {' '.join(cmd)}")
-        
-        # Debug: Check what files exist in the volume before running main container
-        debug_cmd = [
-            "docker", "run", "--rm",
-            "-v", "mailbox-scripts:/tmp/mailbox_scripts",
-            "mcr.microsoft.com/powershell:latest",
-            "pwsh", "-c", "Get-ChildItem /tmp/mailbox_scripts -Force"
-        ]
-        debug_result = subprocess.run(debug_cmd, capture_output=True, text=True, timeout=10)
-        print(f"DEBUG: Files in volume: {debug_result.stdout}")
-        print(f"DEBUG: Volume stderr: {debug_result.stderr}")
-        
-        # Start the container
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
         
         if result.returncode != 0:
             raise Exception(f"Failed to start container: {result.stderr}")
         
+        actual_container_id = result.stdout.strip()
+        print(f"DEBUG: Started container: {actual_container_id}")
+        
+        # Now execute the script in the running container via docker exec
+        exec_cmd = [
+            "docker", "exec", "-i", actual_container_id,
+            "pwsh", "-NoProfile", "-ExecutionPolicy", "Bypass", "-"
+        ]
+        
+        print(f"DEBUG: Executing script in container: {' '.join(exec_cmd)}")
+        
+        # Execute the script via stdin to the running container
+        exec_process = subprocess.Popen(exec_cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        
+        # Start script execution in background thread so it doesn't block the API
+        import threading
+        def run_script():
+            try:
+                stdout, stderr = exec_process.communicate(input=ps_script, timeout=3600)  # 1 hour timeout
+                print(f"DEBUG: Script execution completed for {container_name}")
+                print(f"DEBUG: Script stdout: {stdout[:500]}...")
+                if stderr:
+                    print(f"DEBUG: Script stderr: {stderr[:500]}...")
+            except Exception as e:
+                print(f"DEBUG: Script execution failed for {container_name}: {e}")
+        
+        script_thread = threading.Thread(target=run_script, daemon=True)
+        script_thread.start()
+        
         return container_name
         
     except Exception as e:
-        # Cleanup temp file on error
+        # Cleanup container on error
         try:
-            os.unlink(script_path)
+            subprocess.run(["docker", "rm", "-f", container_name], capture_output=True, timeout=10)
         except:
             pass
         raise e
