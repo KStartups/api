@@ -227,53 +227,13 @@ Write-Host "Connecting to Exchange Online for domain: {domain}" -ForegroundColor
 Write-Host "This will generate an authentication code..." -ForegroundColor Yellow
 
 try {{
-    # Capture the connection output to extract auth code
-    $connectOutput = Connect-ExchangeOnline -Device 2>&1
+    Write-Host "Connecting to Exchange Online..." -ForegroundColor Yellow
     
-    # Parse and display the auth code clearly
-    $authCode = ""
-    $authCodeFound = $false
+    # Connect to Exchange Online - this will handle auth code display and waiting automatically
+    Connect-ExchangeOnline -Device
     
-    foreach ($line in $connectOutput) {{
-        $lineStr = $line.ToString()
-        
-        # Look for various auth code patterns
-        if ($lineStr -match "enter the code ([A-Z0-9]{{6,}}) to authenticate") {{
-            $authCode = $matches[1]
-            $authCodeFound = $true
-        }}
-        elseif ($lineStr -match "Code: ([A-Z0-9]{{6,}})") {{
-            $authCode = $matches[1]
-            $authCodeFound = $true
-        }}
-        elseif ($lineStr -match "([A-Z0-9]{{9}})") {{
-            $authCode = $matches[1]
-            $authCodeFound = $true
-        }}
-        
-        if ($authCodeFound) {{
-            break
-        }}
-    }}
-    
-    if ($authCode) {{
-        Write-Host ""
-        Write-Host "AUTH_CODE: $authCode" -ForegroundColor Yellow
-        Write-Host "Please visit https://microsoft.com/devicelogin and enter: $authCode" -ForegroundColor Yellow
-        Write-Host ""
-    }} else {{
-        Write-Host "ERROR: Could not extract authentication code from output" -ForegroundColor Red
-        Write-Host "Raw output: $connectOutput" -ForegroundColor Gray
-        exit 1
-    }}
-    
-    # Wait for authentication completion - detect welcome message instead of polling
-    Write-Host "Waiting for authentication to complete..." -ForegroundColor Cyan
-    Write-Host "Complete authentication at https://microsoft.com/devicelogin using the code above" -ForegroundColor Yellow
-    
-    # The Connect-ExchangeOnline command will block until authentication is complete
-    # When successful, it will show the welcome message with V3 EXO module info
-    Write-Host "AUTH_WAITING: Please complete authentication in your browser..." -ForegroundColor Yellow
+    # If we reach here, authentication was successful
+    Write-Host "Authentication successful!" -ForegroundColor Green
     
     # Authentication successful - now create mailboxes
     Write-Host ""
