@@ -330,12 +330,15 @@ async def start_domain_container(domain: str, ps_script: str, proxy_endpoint: Op
             "docker", "run", "-d", "--name", container_name,
         ]
         
-        # Add proxy configuration - use the hardcoded proxy for now
-        cmd.extend([
-            "-e", "ALL_PROXY=socks5://8jm9GymM9fj1umY_c_US:RNW78Fm5@secret.infrastructure.2.flowproxies.com:10590",
-            "-e", "HTTP_PROXY=socks5://8jm9GymM9fj1umY_c_US:RNW78Fm5@secret.infrastructure.2.flowproxies.com:10590",
-            "-e", "HTTPS_PROXY=socks5://8jm9GymM9fj1umY_c_US:RNW78Fm5@secret.infrastructure.2.flowproxies.com:10590"
-        ])
+        # Add proxy configuration only if provided - TESTING WITHOUT PROXY FIRST
+        if proxy_endpoint:
+            cmd.extend([
+                "-e", f"ALL_PROXY={proxy_endpoint}",
+                "-e", f"HTTP_PROXY={proxy_endpoint}",
+                "-e", f"HTTPS_PROXY={proxy_endpoint}"
+            ])
+        else:
+            print(f"DEBUG: Running container without proxy for testing")
         
         # Create a wrapper script that executes the main script and ensures output goes to container logs
         wrapper_script = f"""
