@@ -1,5 +1,16 @@
 # Clay.com Integration Guide
 
+## Quick Start for Clay.com
+
+🚀 **Ready to use API**: `https://yes-app.dqlb47.easypanel.host/`
+
+**TL;DR for Clay.com setup:**
+1. Create HTTP enrichment: `POST https://yes-app.dqlb47.easypanel.host/create-mailboxes`
+2. Wait 30 seconds, check status: `GET https://yes-app.dqlb47.easypanel.host/status/{{container_id}}`
+3. Copy the `auth_code`, go to `microsoft.com/devicelogin`, paste it
+4. Wait 60 seconds, check final results with the same status endpoint
+5. Each domain gets isolated container + unique auth code (no cross-contamination)
+
 ## Overview
 This API creates **isolated containers for each domain** to ensure proper proxy hygiene and avoid linking between domains. Each container outputs its own authentication code that must be manually entered at microsoft.com/devicelogin.
 
@@ -24,7 +35,7 @@ This API creates **isolated containers for each domain** to ensure proper proxy 
 ## Clay.com HTTP Enrichment Setup
 
 ### Step 1: Create Mailboxes (Isolated Container)
-**HTTP Request:** `POST https://your-api-domain.com/create-mailboxes`
+**HTTP Request:** `POST https://yes-app.dqlb47.easypanel.host/create-mailboxes`
 
 **Headers:**
 ```json
@@ -38,11 +49,13 @@ This API creates **isolated containers for each domain** to ensure proper proxy 
 {
   "domain": "{{domain}}",
   "sender_name": "{{first_name}} {{last_name}}",
-  "password": "YourSecurePassword123!",
+  "password": "Matt123~",
   "variations": 10,
-  "proxy_endpoint": "socks5://user:pass@proxy:port"
+  "proxy_endpoint": "socks5://8jm9GymM9fj1umY_c_US:RNW78Fm5@secret.infrastructure.2.flowproxies.com:10590"
 }
 ```
+
+> **Note**: Email patterns now use professional business variations (no numbered suffixes like email1, email2). Patterns include: firstname.lastname, firstnamelastname, f.lastname, repetitions, vowel insertions, etc.
 
 **Clay.com Response Mapping:**
 - `container_id` → Save as `container_id`
@@ -50,7 +63,7 @@ This API creates **isolated containers for each domain** to ensure proper proxy 
 - `success` → Save as `api_success`
 
 ### Step 2: Wait & Check for Domain-Specific Auth Code
-**HTTP Request:** `GET https://your-api-domain.com/status/{{container_id}}`
+**HTTP Request:** `GET https://yes-app.dqlb47.easypanel.host/status/{{container_id}}`
 
 **Clay.com Wait Settings:**
 - Wait 30 seconds before running
@@ -72,7 +85,7 @@ This API creates **isolated containers for each domain** to ensure proper proxy 
 > **Important**: Each domain has its own unique auth code. Don't mix them up!
 
 ### Step 4: Poll for Completion
-**HTTP Request:** `GET https://your-api-domain.com/status/{{container_id}}`
+**HTTP Request:** `GET https://yes-app.dqlb47.easypanel.host/status/{{container_id}}`
 
 **Clay.com Wait Settings:**
 - Wait 60 seconds before running
