@@ -31,30 +31,127 @@ class MailboxResponse(BaseModel):
     logs: Optional[str] = None
 
 def generate_email_variations(first_name: str, last_name: str, count: int) -> List[str]:
-    """Generate email variations - simplified from original logic"""
+    """Generate professional business email variations based on real company patterns"""
     variations = []
-    base_combinations = [
+    
+    # Professional business email patterns (no numbers, job titles, or unprofessional suffixes)
+    patterns = [
+        # Basic combinations
         f"{first_name}.{last_name}",
-        f"{first_name[0]}.{last_name}",
-        f"{first_name}.{last_name[0]}",
         f"{first_name}{last_name}",
-        f"{first_name[0]}{last_name}",
-        f"{first_name}{last_name[0]}",
         f"{last_name}.{first_name}",
         f"{last_name}{first_name}",
+        
+        # Initial combinations
+        f"{first_name[0]}.{last_name}",
+        f"{first_name}.{last_name[0]}",
+        f"{first_name[0]}{last_name}",
+        f"{first_name}{last_name[0]}",
+        f"{last_name}.{first_name[0]}",
+        f"{last_name}{first_name[0]}",
+        f"{first_name[0]}.{first_name[0]}.{last_name}",
+        f"{first_name[0]}{first_name[0]}",
+        f"{last_name[0]}{last_name[0]}",
+        
+        # Repetition patterns
+        f"{first_name}{first_name}",
+        f"{last_name}{last_name}",
+        f"{first_name}.{first_name}",
+        f"{last_name}.{last_name}",
+        
+        # Positional variations
+        f"{first_name}.{last_name}.{first_name}",
+        f"{last_name}.{first_name}.{last_name}",
+        f"{first_name[0]}.{first_name}.{last_name}",
+        f"{first_name}.{first_name[0]}.{last_name}",
+        
+        # Vowel insertion patterns (professional variations)
+        f"a{first_name}",
+        f"{first_name}a",
+        f"e{first_name}",
+        f"{first_name}e",
+        f"i{first_name}",
+        f"{first_name}i",
+        f"o{first_name}",
+        f"{first_name}o",
+        f"u{first_name}",
+        f"{first_name}u",
+        f"a{last_name}",
+        f"{last_name}a",
+        f"e{last_name}",
+        f"{last_name}e",
+        f"i{last_name}",
+        f"{last_name}i",
+        f"o{last_name}",
+        f"{last_name}o",
+        f"u{last_name}",
+        f"{last_name}u",
+        
+        # Multiple vowel patterns
+        f"{first_name}ee",
+        f"{first_name}ii",
+        f"{first_name}oo",
+        f"{first_name}aa",
+        f"{last_name}ee",
+        f"{last_name}ii", 
+        f"{last_name}oo",
+        f"{last_name}aa",
+        f"{first_name}eee{last_name}",
+        f"{first_name}iii{last_name}",
+        f"{last_name}iii{first_name}",
+        f"{last_name}eee{first_name}",
+        
+        # Extended combinations
+        f"{first_name}.{last_name}.com",
+        f"{first_name}.{last_name}.co",
+        f"{first_name}{last_name}.mail",
+        f"{first_name}{last_name}.biz",
+        f"{last_name}.{first_name}.pro",
+        
+        # Underscore variations
+        f"{first_name}_{last_name}",
+        f"{last_name}_{first_name}",
+        f"{first_name[0]}_{last_name}",
+        f"{first_name}_{last_name[0]}",
+        
+        # Triple combinations
+        f"{first_name}.{first_name}.{last_name}",
+        f"{last_name}.{last_name}.{first_name}",
+        f"{first_name}.{last_name}.{last_name}",
+        f"{last_name}.{first_name}.{first_name}",
+        
+        # Mixed case preservation patterns
+        f"{first_name.capitalize()}.{last_name.lower()}",
+        f"{first_name.lower()}.{last_name.capitalize()}",
+        f"{first_name.upper()}.{last_name.lower()}",
+        f"{first_name.lower()}.{last_name.upper()}",
+        
+        # Abbreviated forms
+        f"{first_name[:3]}.{last_name}",
+        f"{first_name}.{last_name[:3]}",
+        f"{first_name[:3]}{last_name}",
+        f"{first_name}{last_name[:3]}",
+        f"{first_name[:2]}.{last_name}",
+        f"{first_name}.{last_name[:2]}",
+        
+        # Professional domain-style patterns
+        f"{first_name}.{last_name}.office",
+        f"{first_name}.{last_name}.corp",
+        f"{first_name}.{last_name}.team",
+        f"{first_name}.{last_name}.group",
+        f"{first_name}.{last_name}.dept",
     ]
     
-    # Add numbered variations if needed
-    for i, base in enumerate(base_combinations):
+    # Convert all to lowercase and remove duplicates while preserving order
+    seen = set()
+    for pattern in patterns:
+        clean_pattern = pattern.lower()
+        if clean_pattern not in seen and len(variations) < count:
+            seen.add(clean_pattern)
+            variations.append(clean_pattern)
+            
         if len(variations) >= count:
             break
-        variations.append(base.lower())
-        
-        # Add numbered versions
-        for num in range(1, 10):
-            if len(variations) >= count:
-                break
-            variations.append(f"{base.lower()}{num}")
     
     return variations[:count]
 
