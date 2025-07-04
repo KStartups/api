@@ -325,17 +325,23 @@ Write-Host "Script execution completed." -ForegroundColor Cyan
 def extract_auth_code(logs: str) -> Optional[str]:
     """Extract authentication code from PowerShell logs"""
     
+    # More precise patterns to avoid false positives
     patterns = [
         r"AUTH_CODE: ([A-Z0-9]+)",
-        r"enter the code ([A-Z0-9]{6,}) to authenticate",
-        r"Code: ([A-Z0-9]{6,})",
-        r"([A-Z0-9]{9})"
+        r"enter the code ([A-Z0-9]{6,12}) to authenticate",
+        r"and enter the code ([A-Z0-9]{6,12}) to authenticate",
+        r"Code: ([A-Z0-9]{6,12})",
+        r"device.*?code.*?([A-Z0-9]{8,10})",  # More specific context
+        r"authentication.*?code.*?([A-Z0-9]{8,10})",  # More specific context
     ]
     
     for pattern in patterns:
         match = re.search(pattern, logs, re.IGNORECASE)
         if match:
-            return match.group(1)
+            code = match.group(1)
+            # Additional validation: real auth codes are typically 8-10 chars and not common words
+            if 6 <= len(code) <= 12 and not code.lower() in ['atcushwake', 'microsoft', 'exchange', 'online']:
+                return code
     
     return None
 
