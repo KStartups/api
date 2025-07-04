@@ -154,6 +154,73 @@ def generate_email_variations(first_name: str, last_name: str, count: int) -> Li
         if len(variations) >= count:
             break
     
+    # If we need more variations, generate additional creative patterns
+    if len(variations) < count:
+        # Additional pattern generators for high counts
+        additional_patterns = []
+        
+        # Letter insertion patterns
+        letters = 'abcdefghijklmnopqrstuvwxyz'
+        for letter in letters:
+            if len(variations) + len(additional_patterns) >= count:
+                break
+            additional_patterns.extend([
+                f"{letter}{first_name}.{last_name}",
+                f"{first_name}{letter}.{last_name}",
+                f"{first_name}.{letter}{last_name}",
+                f"{first_name}.{last_name}{letter}",
+                f"{first_name}{letter}{last_name}",
+                f"{letter}.{first_name}.{last_name}",
+                f"{first_name}.{last_name}.{letter}",
+            ])
+        
+        # Number patterns (minimal, professional)
+        for i in range(2, 21):  # 2-20
+            if len(variations) + len(additional_patterns) >= count:
+                break
+            additional_patterns.extend([
+                f"{first_name}{i}.{last_name}",
+                f"{first_name}.{last_name}{i}",
+                f"{first_name}.{i}.{last_name}",
+                f"{first_name[0]}{i}.{last_name}",
+                f"{first_name}.{last_name[0]}{i}",
+            ])
+        
+        # Extended vowel combinations
+        vowel_combos = ['ae', 'ei', 'io', 'ou', 'au', 'eu', 'ai', 'oe']
+        for combo in vowel_combos:
+            if len(variations) + len(additional_patterns) >= count:
+                break
+            additional_patterns.extend([
+                f"{combo}{first_name}",
+                f"{first_name}{combo}",
+                f"{combo}{last_name}",
+                f"{last_name}{combo}",
+                f"{first_name}{combo}{last_name}",
+            ])
+        
+        # More complex combinations
+        if len(variations) + len(additional_patterns) < count:
+            for i, letter in enumerate(letters[:10]):  # Limit to prevent too many
+                if len(variations) + len(additional_patterns) >= count:
+                    break
+                additional_patterns.extend([
+                    f"{first_name}.{letter}.{last_name}.{letter}",
+                    f"{letter}{first_name}{letter}.{last_name}",
+                    f"{first_name}.{last_name}.{letter}{letter}",
+                    f"{letter}{letter}.{first_name}.{last_name}",
+                ])
+        
+        # Add additional patterns, removing duplicates
+        for pattern in additional_patterns:
+            clean_pattern = pattern.lower()
+            if clean_pattern not in seen and len(variations) < count:
+                seen.add(clean_pattern)
+                variations.append(clean_pattern)
+                
+            if len(variations) >= count:
+                break
+    
     return variations[:count]
 
 @app.post("/create-mailboxes", response_model=MailboxResponse)
