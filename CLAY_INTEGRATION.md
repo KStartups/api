@@ -61,6 +61,7 @@ This API creates **isolated containers for each domain** to ensure proper proxy 
 - `container_id` → Save as `container_id`
 - `status` → Save as `status`  
 - `success` → Save as `api_success`
+- `ip_info` → Save as `proxy_verification` (when available)
 
 ### Step 2: Wait & Check for Domain-Specific Auth Code
 **HTTP Request:** `GET https://yes-app.dqlb47.easypanel.host/status/{{container_id}}`
@@ -73,6 +74,7 @@ This API creates **isolated containers for each domain** to ensure proper proxy 
 - `auth_code` → Save as `auth_code` (when available)
 - `status` → Save as `current_status`
 - `auth_url` → Save as `auth_url`
+- `ip_info` → Save as `proxy_verification` (shows IP, country, state, city)
 
 ### Step 3: Manual Authentication Step
 **When `auth_code` appears:**
@@ -113,6 +115,7 @@ This API creates **isolated containers for each domain** to ensure proper proxy 
 | `container_id` | Text | Unique container identifier |
 | `auth_code` | Text | Microsoft auth code for this domain |
 | `current_status` | Text | Processing status |
+| `proxy_verification` | Text | IP, country, state, city for proxy check |
 | `created_emails` | Text | JSON array of successful emails |
 | `failed_emails` | Text | JSON array of failed emails |
 | `mailbox_count` | Number | Count of successful mailboxes |
@@ -131,6 +134,7 @@ Row 2: domain="beta.com", first_name="Jane", last_name="Smith"
 2. HTTP Enrichment "Check Auth Code" (wait 30s, runs on both)
    Row 1 → auth_code="ABC123DEF" (for acme.com)
    Row 2 → auth_code="XYZ789GHI" (for beta.com)
+   Both → proxy_verification="IP=203.0.113.45 | Country=US | State=California | City=San Francisco"
 
 3. Manual step: 
    - Visit microsoft.com/devicelogin
@@ -288,9 +292,29 @@ curl "http://localhost:8000/status/CONTAINER_ID"
 ### Clay.com Testing
 1. Start with 1-2 domains
 2. Verify auth codes are unique
-3. Complete authentication for each domain
-4. Verify isolation (no cross-contamination)
-5. Scale up once working properly
+3. **Check proxy verification**: Confirm `ip_info` shows expected location
+4. Complete authentication for each domain
+5. Verify isolation (no cross-contamination)
+6. Scale up once working properly
+
+### Proxy Verification
+The API now includes automatic IP checking to verify proxy functionality:
+
+```json
+{
+  "ip_info": "IP=203.0.113.45 | Country=US | State=California | City=San Francisco"
+}
+```
+
+**Expected output formats:**
+- **With proxy**: Shows proxy server's location
+- **Without proxy**: Shows your VPS server's location  
+- **Proxy failed**: Shows fallback IP or error message
+
+**Verification steps:**
+1. Test without proxy → Should show VPS location
+2. Test with proxy → Should show proxy location (different from VPS)
+3. If locations match when using proxy → Proxy not working
 
 ## Support
 

@@ -29,6 +29,7 @@ class MailboxResponse(BaseModel):
     created_mailboxes: Optional[List[str]] = None
     failed_mailboxes: Optional[List[str]] = None
     logs: Optional[str] = None
+    ip_info: Optional[str] = None  # Added for proxy verification
 
 def generate_email_variations(first_name: str, last_name: str, count: int) -> List[str]:
     """Generate professional business email variations based on real company patterns"""
@@ -248,6 +249,8 @@ async def get_container_status(container_id: str):
         else:
             current_status = "starting"
         
+        ip_info = extract_ip_info(logs)
+        
         return MailboxResponse(
             success=True,
             container_id=container_id,
@@ -255,7 +258,8 @@ async def get_container_status(container_id: str):
             auth_code=auth_code,
             created_mailboxes=created,
             failed_mailboxes=failed,
-            logs=logs
+            logs=logs,
+            ip_info=ip_info
         )
         
     except subprocess.TimeoutExpired:
@@ -311,6 +315,41 @@ try {{
 Write-Host "=== STARTING MAILBOX CREATION FOR {domain.upper()} ===" -ForegroundColor Cyan
 Write-Host "Container ID: $env:HOSTNAME" -ForegroundColor Gray
 Write-Host "Timestamp: $(Get-Date)" -ForegroundColor Gray
+
+# IP Check for Proxy Verification
+Write-Host "=== PROXY VERIFICATION ===" -ForegroundColor Yellow
+try {{
+    Write-Host "Checking IP location..." -ForegroundColor Yellow
+    
+    # Get IP info from ipinfo.io (includes IP, country, region)
+    $ipInfo = Invoke-RestMethod -Uri "https://ipinfo.io/json" -TimeoutSec 15 -ErrorAction Stop
+    
+    $ip = $ipInfo.ip
+    $country = $ipInfo.country
+    $state = $ipInfo.region
+    $city = $ipInfo.city
+    
+    # Output on single line for easy parsing
+    Write-Host "PROXY_CHECK: IP=$ip | Country=$country | State=$state | City=$city" -ForegroundColor Green
+    
+    # Also output individual components for parsing
+    Write-Host "IP_ADDRESS: $ip" -ForegroundColor White
+    Write-Host "COUNTRY: $country" -ForegroundColor White
+    Write-Host "STATE: $state" -ForegroundColor White
+    Write-Host "CITY: $city" -ForegroundColor White
+    
+}} catch {{
+    Write-Host "PROXY_CHECK: Failed to get IP info - $_" -ForegroundColor Red
+    
+    # Fallback - try simpler IP check
+    try {{
+        $fallbackIP = Invoke-RestMethod -Uri "https://api64.ipify.org" -TimeoutSec 10 -ErrorAction Stop
+        Write-Host "PROXY_CHECK: IP=$fallbackIP | Country=Unknown | State=Unknown | City=Unknown" -ForegroundColor Yellow
+        Write-Host "IP_ADDRESS: $fallbackIP" -ForegroundColor White
+    }} catch {{
+        Write-Host "PROXY_CHECK: Complete IP check failure - $_" -ForegroundColor Red
+    }}
+}}
 
 # Install and Import Exchange Online module
 Write-Host "Installing ExchangeOnlineManagement module..." -ForegroundColor Yellow
@@ -496,6 +535,30 @@ def parse_final_results(logs: str) -> tuple[List[str], List[str]]:
                 failed.append(email_match.group(1))
     
     return created, failed
+
+def extract_ip_info(logs: str) -> Optional[str]:
+    """Extract IP information from logs for proxy verification"""
+    
+    # Look for the consolidated proxy check line
+    proxy_check_match = re.search(r'PROXY_CHECK: (IP=.+)', logs)
+    if proxy_check_match:
+        return proxy_check_match.group(1)
+    
+    # Fallback: extract individual components
+    ip_match = re.search(r'IP_ADDRESS: (.+)', logs)
+    country_match = re.search(r'COUNTRY: (.+)', logs)
+    state_match = re.search(r'STATE: (.+)', logs)
+    city_match = re.search(r'CITY: (.+)', logs)
+    
+    if ip_match:
+        ip = ip_match.group(1).strip()
+        country = country_match.group(1).strip() if country_match else "Unknown"
+        state = state_match.group(1).strip() if state_match else "Unknown"
+        city = city_match.group(1).strip() if city_match else "Unknown"
+        
+        return f"IP={ip} | Country={country} | State={state} | City={city}"
+    
+    return None
 
 @app.get("/health")
 async def health_check():
